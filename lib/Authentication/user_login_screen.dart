@@ -1,11 +1,12 @@
 import 'package:club_app/AppColors/AppColors.dart';
 import 'package:club_app/Authentication/user_signup_screen.dart';
+import 'package:club_app/UserScreens/user_home_screen.dart';
 import 'package:club_app/Utilities/BottonStyle.dart';
 import 'package:club_app/Utilities/InputDecorationStyle.dart';
 import 'package:club_app/Widgets/custom_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:icons_plus/icons_plus.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';  // Add FirebaseAuth package
 
 class UserLogInScreen extends StatefulWidget {
   const UserLogInScreen({super.key});
@@ -17,6 +18,52 @@ class UserLogInScreen extends StatefulWidget {
 class _UserLogInScreenState extends State<UserLogInScreen> {
   final _formSignInKey = GlobalKey<FormState>();
   bool rememberPassword = true;
+  final TextEditingController _emailController = TextEditingController();  // Email field controller
+  final TextEditingController _passwordController = TextEditingController();  // Password field controller
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  bool _isPasswordVisible = false;
+
+  // Function to handle login with Firebase
+  Future<void> _loginWithEmailAndPassword() async {
+    if (_formSignInKey.currentState!.validate()) {
+      try {
+        UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+          email: _emailController.text,
+          password: _passwordController.text,
+        );
+        // Navigate to profile screen after successful login
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => HomeScreen()),
+        );
+        // Show successful login Snackbar
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Login Successful')),
+        );
+      } on FirebaseAuthException catch (e) {
+        // Display appropriate Snackbar based on error code
+        String message;
+        if (e.code == 'user-not-found') {
+          message = 'No user found for this email.';
+        } else if (e.code == 'wrong-password') {
+          message = 'Wrong password provided.';
+        } else {
+          message = 'Login failed. Please try again.';
+        }
+        // Show error Snackbar
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      } catch (e) {
+        // Handle any other exceptions
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('An error occurred. Please try again.')),
+        );
+      }
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return CustomScaffold(
@@ -32,9 +79,9 @@ class _UserLogInScreenState extends State<UserLogInScreen> {
             flex: 7,
             child: Container(
               padding: const EdgeInsets.fromLTRB(25.0, 20.0, 25.0, 20.0),
-              decoration:  BoxDecoration(
+              decoration: BoxDecoration(
                 color: colorLight.withOpacity(.9),
-                borderRadius: BorderRadius.only(
+                borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(40.0),
                   topRight: Radius.circular(40.0),
                 ),
@@ -54,35 +101,64 @@ class _UserLogInScreenState extends State<UserLogInScreen> {
                           fontFamily: 'poppins',
                         ),
                       ),
-                      const SizedBox(
-                        height: 20.0,
-                      ),
+                      const SizedBox(height: 20.0),
                       TextFormField(
+                        controller: _emailController,  // Connect controller to the TextField
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Please enter Email';
+                            return 'Please enter your email';
                           }
                           return null;
                         },
-                          decoration: AppInputDecoration("Enter Your Name")
+                        decoration: AppInputDecoration("Enter Your Email"),
                       ),
-                      const SizedBox(
-                        height: 25.0,
-                      ),
+                      const SizedBox(height: 25.0),
                       TextFormField(
-                        obscureText: true,
+                        controller: _passwordController,
+                        obscureText: !_isPasswordVisible, // Set based on visibility state
                         obscuringCharacter: '*',
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Please enter Password';
+                            return 'Please enter your password';
                           }
                           return null;
                         },
-                          decoration: AppInputDecoration("Enter Your Password")
+                        decoration: InputDecoration(
+                          focusedBorder:   OutlineInputBorder(
+                            borderSide: const BorderSide(color: AppColors.pColor, width: 1.5,),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          fillColor: colorLightGray,
+                          filled: false,
+                          contentPadding: EdgeInsets.fromLTRB(20, 8, 8, 20),
+                          enabledBorder:  OutlineInputBorder(
+                            borderSide:  BorderSide(color: AppColors.sColor, width: 1.5),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+
+                          border: OutlineInputBorder(),
+                          labelText: 'Enter Your Password',
+                          labelStyle: const TextStyle(
+                            color: Colors.black38,
+                            fontFamily: 'poppins',
+                          ),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              // Change the icon based on the password visibility state
+                              _isPasswordVisible
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                            ),
+                            onPressed: () {
+                              // Toggle password visibility state
+                              setState(() {
+                                _isPasswordVisible = !_isPasswordVisible;
+                              });
+                            },
+                          ),
+                        ),
                       ),
-                      const SizedBox(
-                        height: 25.0,
-                      ),
+                      const SizedBox(height: 25.0),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -106,7 +182,7 @@ class _UserLogInScreenState extends State<UserLogInScreen> {
                             ],
                           ),
                           GestureDetector(
-                            child: Text(
+                            child: const Text(
                               'Forget password?',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
@@ -116,34 +192,17 @@ class _UserLogInScreenState extends State<UserLogInScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(
-                        height: 25.0,
-                      ),
+                      const SizedBox(height: 25.0),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButtonStyle(
                           onPressed: () {
-                            if (_formSignInKey.currentState!.validate() &&
-                                rememberPassword) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Processing Data'),
-                                ),
-                              );
-                            } else if (!rememberPassword) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text(
-                                        'Please agree to the processing of personal data')),
-                              );
-                            }
-                          }, text: 'Log In',
-
+                            _loginWithEmailAndPassword();  // Call Firebase login function
+                          },
+                          text: 'Log In',
                         ),
                       ),
-                      const SizedBox(
-                        height: 25.0,
-                      ),
+                      const SizedBox(height: 25.0),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -173,9 +232,7 @@ class _UserLogInScreenState extends State<UserLogInScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(
-                        height: 25.0,
-                      ),
+                      const SizedBox(height: 25.0),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
@@ -185,9 +242,7 @@ class _UserLogInScreenState extends State<UserLogInScreen> {
                           Logo(Logos.apple),
                         ],
                       ),
-                      const SizedBox(
-                        height: 25.0,
-                      ),
+                      const SizedBox(height: 25.0),
                       // don't have an account
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -217,9 +272,7 @@ class _UserLogInScreenState extends State<UserLogInScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(
-                        height: 20.0,
-                      ),
+                      const SizedBox(height: 20.0),
                     ],
                   ),
                 ),

@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'package:club_app/Authentication/user_login_screen.dart';
-import 'package:flutter/cupertino.dart';
+import 'package:club_app/Authentication/auth_controller.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
 import '../AppColors/AppColors.dart';
+import '../Authentication/user_login_screen.dart'; // Your login screen
 
 class SplashScreen extends StatefulWidget {
   @override
@@ -14,16 +14,34 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Timer(
-      const Duration(seconds: 2),
-          () => Navigator.pushReplacement(
+    // Wait for 2 seconds before checking the authentication state
+    Timer(const Duration(seconds: 2), _checkUserAuthentication);
+  }
+
+  // Check if the user is authenticated
+  void _checkUserAuthentication() async {
+    // Check the current user state
+    User? user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      // No user is signed in, navigate to the Login screen
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (context) => UserLogInScreen(),
         ),
-      ),
-    );
+      );
+    } else {
+      // User is signed in, navigate to the HomeScreen
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AuthWrapper(),
+        ),
+      );
+    }
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -45,7 +63,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 children: [
                   Column(
                     children: [
-                      SizedBox(height: 25,),
+                      SizedBox(height: 25),
                       Image.asset(
                         "assets/images/logo.png",
                         height: 450.0,

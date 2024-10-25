@@ -1,10 +1,14 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:club_app/AppColors/AppColors.dart';
 import 'package:club_app/Authentication/user_login_screen.dart';
 import 'package:club_app/Utilities/BottonStyle.dart';
 import 'package:club_app/Utilities/InputDecorationStyle.dart';
 import 'package:club_app/Widgets/custom_scaffold.dart';
 import 'package:flutter/material.dart';
-import 'package:icons_plus/icons_plus.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class UserSignUpScreen extends StatefulWidget {
   const UserSignUpScreen({super.key});
@@ -16,20 +20,99 @@ class UserSignUpScreen extends StatefulWidget {
 class _UserSignUpScreenState extends State<UserSignUpScreen> {
   final _formSignupKey = GlobalKey<FormState>();
   bool agreePersonalData = true;
+  bool _isLoading = false;  // New loading indicator flag
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _fullNameController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
+  bool _isPasswordVisible = false;
+
+  // Image picker
+  final ImagePicker _picker = ImagePicker();
+  XFile? _imageFile;
+
+  Future<void> _pickImage() async {
+    _imageFile = await _picker.pickImage(source: ImageSource.gallery);
+    setState(() {});
+  }
+
+  // Sign-up logic with image upload
+  Future<void> _signUp() async {
+    if (_formSignupKey.currentState!.validate() && agreePersonalData) {
+      if (_passwordController.text == _confirmPasswordController.text) {
+        setState(() {
+          _isLoading = true;  // Start loading
+        });
+
+        try {
+          UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+            email: _emailController.text.trim(),
+            password: _passwordController.text.trim(),
+          );
+
+          String? imageUrl;
+          if (_imageFile != null) {
+            final storageRef = FirebaseStorage.instance
+                .ref().child('user_avatars/${userCredential.user!.uid}.jpg');
+            await storageRef.putFile(File(_imageFile!.path));
+            imageUrl = await storageRef.getDownloadURL();
+          }
+
+          // Store additional details in Firestore
+          await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+            'full_name': _fullNameController.text.trim(),
+            'email': _emailController.text.trim(),
+            'password': _passwordController.text.trim(),
+            'address': _addressController.text.trim(),
+            'avatar_url': imageUrl,
+          });
+
+          // Reset text fields and image picker after successful sign up
+          _fullNameController.clear();
+          _emailController.clear();
+          _addressController.clear();
+          _passwordController.clear();
+          _confirmPasswordController.clear();
+          _imageFile = null;
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Account created successfully!')),
+          );
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const UserLogInScreen()),
+          );
+        } catch (e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.toString())),
+          );
+        } finally {
+          setState(() {
+            _isLoading = false;  // Stop loading
+          });
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Passwords do not match')),
+        );
+      }
+    } else if (!agreePersonalData) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please agree to the processing of personal data')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return CustomScaffold(
       child: Column(
         children: [
-          const Expanded(
-            flex: 0,
-            child: SizedBox(
-              height: 10,
-            ),
-          ),
+          const SizedBox(height: 10),
           Expanded(
-            flex: 12,
             child: Container(
               padding: const EdgeInsets.fromLTRB(25.0, 10.0, 25.0, 20.0),
               decoration: BoxDecoration(
@@ -45,221 +128,157 @@ class _UserSignUpScreenState extends State<UserSignUpScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      SizedBox(height: 10,),
+                      const SizedBox(height: 10),
                       const Text(
                         'Sign Up',
-                        style: TextStyle(
-                          fontSize: 30.0,
-                          fontWeight: FontWeight.w900,
-                          color: AppColors.pColor,
+                        style: TextStyle(fontSize: 30.0, fontWeight: FontWeight.w900, color: AppColors.pColor),
+                      ),
+                      const SizedBox(height: 10),
+                      GestureDetector(
+                        onTap: _pickImage,
+                        child: CircleAvatar(
+                          radius: 45.0,
+                          backgroundColor: Colors.grey,
+                          backgroundImage: _imageFile != null ? FileImage(File(_imageFile!.path)) : null,
+                          child: _imageFile == null
+                              ? const Icon(Icons.person, size: 50, color: Colors.white)
+                              : null,
                         ),
                       ),
-                      SizedBox(height: 10,),
-                      // Circular Image Avatar
-                      const CircleAvatar(
-                        radius: 45.0,
-                        backgroundColor: Colors.grey,
-                        child: Icon(
-                          Icons.person,
-                          size: 50,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(
-                        height: 15.0,
-                      ),
-
-                      // Full name
+                      const SizedBox(height: 15.0),
                       TextFormField(
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter Full name';
-                          }
-                          return null;
-                        },
+                        controller: _fullNameController,
+                        validator: (value) => value == null || value.isEmpty ? 'Please enter Full name' : null,
                         decoration: AppInputDecoration("Enter Your Full Name"),
                       ),
-                      const SizedBox(
-                        height: 10.0,
-                      ),
-                      // Email
+                      const SizedBox(height: 10.0),
                       TextFormField(
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter Email';
-                          }
-                          return null;
-                        },
+                        controller: _emailController,
+                        validator: (value) => value == null || value.isEmpty ? 'Please enter Email' : null,
                         decoration: AppInputDecoration("Enter Your Email"),
                       ),
-                      const SizedBox(
-                        height: 10.0,
-                      ),
-                      // Address
+                      const SizedBox(height: 10.0),
                       TextFormField(
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter Address';
-                          }
-                          return null;
-                        },
+                        controller: _addressController,
+                        validator: (value) => value == null || value.isEmpty ? 'Please enter Address' : null,
                         decoration: AppInputDecoration("Enter Your Address"),
                       ),
-                      const SizedBox(
-                        height: 10.0,
-                      ),
-                      // Password
+                      const SizedBox(height: 10.0),
                       TextFormField(
-                        obscureText: true,
-                        obscuringCharacter: '*',
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter Password';
-                          }
-                          return null;
-                        },
-                        decoration: AppInputDecoration("Enter Your Password"),
+                        controller: _passwordController,
+                        obscureText: !_isPasswordVisible,
+                        validator: (value) => value == null || value.isEmpty ? 'Please enter Password' : null,
+                        decoration: InputDecoration(
+                          focusedBorder:   OutlineInputBorder(
+                            borderSide: const BorderSide(color: AppColors.pColor, width: 1.5,),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          fillColor: colorLightGray,
+                          filled: false,
+                          contentPadding: EdgeInsets.fromLTRB(20, 8, 8, 20),
+                          enabledBorder:  OutlineInputBorder(
+                            borderSide:  BorderSide(color: AppColors.sColor, width: 1.5),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+
+                          border: OutlineInputBorder(),
+                          labelText: 'Enter Your Password',
+                          labelStyle: const TextStyle(
+                            color: Colors.black38,
+                            fontFamily: 'poppins',
+                          ),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              // Change the icon based on the password visibility state
+                              _isPasswordVisible
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                            ),
+                            onPressed: () {
+                              // Toggle password visibility state
+                              setState(() {
+                                _isPasswordVisible = !_isPasswordVisible;
+                              });
+                            },
+                          ),
+                        ),
                       ),
-                      const SizedBox(
-                        height: 10.0,
-                      ),
-                      // Confirm Password
+                      const SizedBox(height: 10.0),
                       TextFormField(
-                        obscureText: true,
-                        obscuringCharacter: '*',
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter Confirm Password';
-                          }
-                          return null;
-                        },
-                        decoration: AppInputDecoration("Enter Your Confirm Password"),
+                        controller: _confirmPasswordController,
+                        obscureText: !_isPasswordVisible,
+                        validator: (value) => value == null || value.isEmpty ? 'Please enter Confirm Password' : null,
+                        decoration: InputDecoration(
+                          focusedBorder:   OutlineInputBorder(
+                            borderSide: const BorderSide(color: AppColors.pColor, width: 1.5,),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          fillColor: colorLightGray,
+                          filled: false,
+                          contentPadding: EdgeInsets.fromLTRB(20, 8, 8, 20),
+                          enabledBorder:  OutlineInputBorder(
+                            borderSide:  BorderSide(color: AppColors.sColor, width: 1.5),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+
+                          border: OutlineInputBorder(),
+                          labelText: 'Conform Your Password',
+                          labelStyle: const TextStyle(
+                            color: Colors.black38,
+                            fontFamily: 'poppins',
+                          ),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              // Change the icon based on the password visibility state
+                              _isPasswordVisible
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                            ),
+                            onPressed: () {
+                              // Toggle password visibility state
+                              setState(() {
+                                _isPasswordVisible = !_isPasswordVisible;
+                              });
+                            },
+                          ),
+                        ),
                       ),
-                      // Checkbox for agreeing to personal data
                       Row(
                         children: [
                           Checkbox(
                             value: agreePersonalData,
-                            onChanged: (bool? value) {
-                              setState(() {
-                                agreePersonalData = value!;
-                              });
-                            },
+                            onChanged: (bool? value) => setState(() => agreePersonalData = value!),
                             activeColor: AppColors.pColor,
                           ),
-                          const Text(
-                            'I agree to the processing of ',
-                            style: TextStyle(color: Colors.black45, fontSize: 12),
-                          ),
-                          const Text(
-                            'Personal data',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.pColor,
-                            ),
-                          ),
+                          const Text('I agree to the processing of ', style: TextStyle(color: Colors.black45, fontSize: 12)),
+                          const Text('Personal data', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.pColor)),
                         ],
                       ),
-                      // Sign-up button
-                      SizedBox(
+                      _isLoading  // Show CircularProgressIndicator when loading
+                          ? const CircularProgressIndicator()
+                          : SizedBox(
                         width: double.infinity,
                         child: ElevatedButtonStyle(
-                          onPressed: () {
-                            if (_formSignupKey.currentState!.validate() &&
-                                agreePersonalData) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Processing Data',
-                                    style: TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                              );
-                            } else if (!agreePersonalData) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                      'Please agree to the processing of personal data'),
-                                ),
-                              );
-                            }
-                          },
-                          text: 'Sign Up',
+                          onPressed: _signUp,
+                          text: 'Sign In',
                         ),
                       ),
                       const SizedBox(height: 10.0),
-                      // Sign up with social media
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Expanded(
-                            child: Divider(
-                              thickness: 0.7,
-                              color: Colors.grey.withOpacity(0.5),
-                            ),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(
-                              vertical: 0,
-                              horizontal: 10,
-                            ),
-                            child: Text(
-                              'Sign up with',
-                              style: TextStyle(
-                                color: Colors.black45,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: Divider(
-                              thickness: 0.7,
-                              color: Colors.grey.withOpacity(0.5),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10.0),
-                      // Social media logos
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          Logo(Logos.facebook_f),
-                          Logo(Logos.twitter),
-                          Logo(Logos.google),
-                          Logo(Logos.apple),
-                        ],
-                      ),
-                      const SizedBox(height: 15.0),
-                      // Already have an account
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text(
-                            'Already have an account? ',
-                            style: TextStyle(
-                              color: Colors.black45,
-                            ),
-                          ),
+                          const Text('Do you have an account? ', style: TextStyle(color: Colors.black45)),
                           GestureDetector(
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(
-                                  builder: (e) => const UserLogInScreen(),
-                                ),
+                                MaterialPageRoute(builder: (e) => const UserLogInScreen()),
                               );
                             },
-                            child: Text(
-                              'Sign in',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.pColor,
-                              ),
-                            ),
+                            child: Text('Sign up', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.pColor)),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20.0),
                     ],
                   ),
                 ),
@@ -271,3 +290,4 @@ class _UserSignUpScreenState extends State<UserSignUpScreen> {
     );
   }
 }
+
