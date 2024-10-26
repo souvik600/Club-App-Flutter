@@ -1,12 +1,14 @@
 import 'package:club_app/AppColors/AppColors.dart';
 import 'package:club_app/Authentication/user_signup_screen.dart';
-import 'package:club_app/UserScreens/user_home_screen.dart';
+import 'package:club_app/Screens/UserScreens/user_home_screen.dart';
+import 'package:club_app/Screens/AdminScreens/admin_home_screen.dart';
 import 'package:club_app/Utilities/BottonStyle.dart';
 import 'package:club_app/Utilities/InputDecorationStyle.dart';
 import 'package:club_app/Widgets/custom_scaffold.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:icons_plus/icons_plus.dart';
-import 'package:firebase_auth/firebase_auth.dart';  // Add FirebaseAuth package
 
 class UserLogInScreen extends StatefulWidget {
   const UserLogInScreen({super.key});
@@ -17,45 +19,37 @@ class UserLogInScreen extends StatefulWidget {
 
 class _UserLogInScreenState extends State<UserLogInScreen> {
   final _formSignInKey = GlobalKey<FormState>();
-  bool rememberPassword = true;
-  final TextEditingController _emailController = TextEditingController();  // Email field controller
-  final TextEditingController _passwordController = TextEditingController();  // Password field controller
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   bool _isPasswordVisible = false;
 
-  // Function to handle login with Firebase
-  Future<void> _loginWithEmailAndPassword() async {
+  // Function to handle login with Firestore for admin check first
+  Future<void> _loginWithFirestoreOrAuth() async {
     if (_formSignInKey.currentState!.validate()) {
       try {
-        UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-          email: _emailController.text,
-          password: _passwordController.text,
-        );
-        // Navigate to profile screen after successful login
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => HomeScreen()),
-        );
-        // Show successful login Snackbar
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login Successful')),
-        );
-      } on FirebaseAuthException catch (e) {
-        // Display appropriate Snackbar based on error code
-        String message;
-        if (e.code == 'user-not-found') {
-          message = 'No user found for this email.';
-        } else if (e.code == 'wrong-password') {
-          message = 'Wrong password provided.';
+        // Query Firestore for admin credentials
+        final adminSnapshot = await _firestore
+            .collection('adminCredentials')
+            .where('email', isEqualTo: _emailController.text)
+            .where('password', isEqualTo: _passwordController.text)
+            .get();
+
+        if (adminSnapshot.docs.isNotEmpty) {
+          // Navigate to AdminHomeScreen if credentials match
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => AdminHomeScreen()),
+          );
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Admin Login Successful')),
+          );
         } else {
-          message = 'Login failed. Please try again.';
+          // If not admin, check Firebase Authentication for user login
+          await _loginWithEmailAndPassword();
         }
-        // Show error Snackbar
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
       } catch (e) {
-        // Handle any other exceptions
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('An error occurred. Please try again.')),
         );
@@ -63,6 +57,39 @@ class _UserLogInScreenState extends State<UserLogInScreen> {
     }
   }
 
+  // Function to handle Firebase Authentication login for regular users
+  Future<void> _loginWithEmailAndPassword() async {
+    try {
+      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
+      // Navigate to UserHomeScreen after successful login
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => UserHomeScreen()),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Login Successful')),
+      );
+    } on FirebaseAuthException catch (e) {
+      String message;
+      if (e.code == 'user-not-found') {
+        message = 'No user found for this email.';
+      } else if (e.code == 'wrong-password') {
+        message = 'Wrong password provided.';
+      } else {
+        message = 'Login failed. Please try again.';
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('An error occurred. Please try again.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -103,7 +130,7 @@ class _UserLogInScreenState extends State<UserLogInScreen> {
                       ),
                       const SizedBox(height: 20.0),
                       TextFormField(
-                        controller: _emailController,  // Connect controller to the TextField
+                        controller: _emailController,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Please enter your email';
@@ -115,7 +142,7 @@ class _UserLogInScreenState extends State<UserLogInScreen> {
                       const SizedBox(height: 25.0),
                       TextFormField(
                         controller: _passwordController,
-                        obscureText: !_isPasswordVisible, // Set based on visibility state
+                        obscureText: !_isPasswordVisible,
                         obscuringCharacter: '*',
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -124,19 +151,22 @@ class _UserLogInScreenState extends State<UserLogInScreen> {
                           return null;
                         },
                         decoration: InputDecoration(
-                          focusedBorder:   OutlineInputBorder(
-                            borderSide: const BorderSide(color: AppColors.pColor, width: 1.5,),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: const BorderSide(
+                              color: AppColors.pColor,
+                              width: 1.5,
+                            ),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           fillColor: colorLightGray,
                           filled: false,
-                          contentPadding: EdgeInsets.fromLTRB(20, 8, 8, 20),
-                          enabledBorder:  OutlineInputBorder(
-                            borderSide:  BorderSide(color: AppColors.sColor, width: 1.5),
+                          contentPadding: const EdgeInsets.fromLTRB(20, 8, 8, 20),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: const BorderSide(
+                                color: AppColors.sColor, width: 1.5),
                             borderRadius: BorderRadius.circular(10),
                           ),
-
-                          border: OutlineInputBorder(),
+                          border: const OutlineInputBorder(),
                           labelText: 'Enter Your Password',
                           labelStyle: const TextStyle(
                             color: Colors.black38,
@@ -144,13 +174,11 @@ class _UserLogInScreenState extends State<UserLogInScreen> {
                           ),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              // Change the icon based on the password visibility state
                               _isPasswordVisible
                                   ? Icons.visibility
                                   : Icons.visibility_off,
                             ),
                             onPressed: () {
-                              // Toggle password visibility state
                               setState(() {
                                 _isPasswordVisible = !_isPasswordVisible;
                               });
@@ -159,46 +187,10 @@ class _UserLogInScreenState extends State<UserLogInScreen> {
                         ),
                       ),
                       const SizedBox(height: 25.0),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Checkbox(
-                                value: rememberPassword,
-                                onChanged: (bool? value) {
-                                  setState(() {
-                                    rememberPassword = value!;
-                                  });
-                                },
-                                activeColor: AppColors.pColor,
-                              ),
-                              const Text(
-                                'Remember me',
-                                style: TextStyle(
-                                  color: Colors.black45,
-                                ),
-                              ),
-                            ],
-                          ),
-                          GestureDetector(
-                            child: const Text(
-                              'Forget password?',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.pColor,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 25.0),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButtonStyle(
-                          onPressed: () {
-                            _loginWithEmailAndPassword();  // Call Firebase login function
-                          },
+                          onPressed: _loginWithFirestoreOrAuth,
                           text: 'Log In',
                         ),
                       ),
@@ -243,7 +235,6 @@ class _UserLogInScreenState extends State<UserLogInScreen> {
                         ],
                       ),
                       const SizedBox(height: 25.0),
-                      // don't have an account
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -262,7 +253,7 @@ class _UserLogInScreenState extends State<UserLogInScreen> {
                                 ),
                               );
                             },
-                            child: Text(
+                            child: const Text(
                               'Sign up',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,

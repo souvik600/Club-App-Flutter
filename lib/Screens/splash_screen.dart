@@ -1,10 +1,10 @@
 import 'dart:async';
+import 'package:club_app/AppColors/AppColors.dart';
 import 'package:club_app/Authentication/auth_controller.dart';
+import 'package:club_app/Authentication/user_login_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../AppColors/AppColors.dart';
-import '../Authentication/user_login_screen.dart'; // Your login screen
-
+// Your login screen
 class SplashScreen extends StatefulWidget {
   @override
   _SplashScreenState createState() => _SplashScreenState();
@@ -17,7 +17,6 @@ class _SplashScreenState extends State<SplashScreen> {
     // Wait for 2 seconds before checking the authentication state
     Timer(const Duration(seconds: 2), _checkUserAuthentication);
   }
-
   // Check if the user is authenticated
   void _checkUserAuthentication() async {
     // Check the current user state

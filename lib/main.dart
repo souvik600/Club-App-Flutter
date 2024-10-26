@@ -1,7 +1,7 @@
+import 'package:club_app/Screens/splash_screen.dart';
 import 'package:club_app/firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'UserScreens/splash_screen.dart';
 
 
 Future<void> main() async {
