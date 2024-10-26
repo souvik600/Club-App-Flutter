@@ -1,3 +1,4 @@
+import 'package:club_app/AppColors/AppColors.dart';
 import 'package:club_app/Utilities/BottonStyle.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -20,7 +21,7 @@ class _AdminMovingNoticeTextState extends State<AdminMovingNoticeText>
     _controller = AnimationController(
       duration: const Duration(seconds: 40),
       vsync: this,
-    )..repeat(reverse: false);
+    )..repeat(); // Repeats the animation continuously
     fetchNoticeText();
   }
 
@@ -63,21 +64,12 @@ class _AdminMovingNoticeTextState extends State<AdminMovingNoticeText>
     super.didChangeDependencies();
     final screenWidth = MediaQuery.of(context).size.width;
     _animation = Tween<double>(
-      begin: screenWidth,
-      end: -screenWidth, // Move entirely off screen
+      begin: screenWidth, // Start off the right side of the screen
+      end: -screenWidth, // Move entirely off the left side
     ).animate(_controller)
       ..addListener(() {
         setState(() {});
       });
-
-    _animation.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        _controller.reset();
-        _controller.forward();
-      }
-    });
-
-    _controller.forward();
   }
 
   @override
@@ -99,7 +91,7 @@ class _AdminMovingNoticeTextState extends State<AdminMovingNoticeText>
             left: 16.0,
             right: 16.0,
             top: 16.0,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 16.0, // Adds padding based on keyboard height
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16.0, // Adjusts for keyboard height
           ),
           child: SingleChildScrollView( // Allows content to scroll when keyboard appears
             child: Column(
@@ -107,21 +99,23 @@ class _AdminMovingNoticeTextState extends State<AdminMovingNoticeText>
               children: [
                 TextField(
                   controller: _editController,
-                  maxLines: 2,
+                  maxLines: 1, // Ensure the TextField is single line
                   decoration: InputDecoration(
                     labelText: 'Edit Notice Text',
                     border: OutlineInputBorder(),
                   ),
                 ),
                 SizedBox(height: 10),
-
-                ElevatedButtonStyle(text: 'Save', onPressed: () async {
-                  final newText = _editController.text.trim();
-                  if (newText.isNotEmpty) {
-                    await updateNoticeText(newText);
-                    Navigator.pop(context);
-                  }
-                },)
+                ElevatedButtonStyle(
+                  text: 'Save',
+                  onPressed: () async {
+                    final newText = _editController.text.trim();
+                    if (newText.isNotEmpty) {
+                      await updateNoticeText(newText);
+                      Navigator.pop(context);
+                    }
+                  },
+                )
               ],
             ),
           ),
@@ -132,37 +126,51 @@ class _AdminMovingNoticeTextState extends State<AdminMovingNoticeText>
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.topRight,
-      children: [
-        // Moving Text
-        Positioned.fill(
-          child: Container(
-            padding: EdgeInsets.only(top: 0),
-            alignment: Alignment.centerLeft,
-            child: Transform.translate(
-              offset: Offset(_animation.value, 0),
-              child: Text(
-                noticeText,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'kalpurush',
-                  color: Colors.red.shade900,
+    return Container(
+      margin: const EdgeInsets.only(top: 15, bottom: 20),
+      width: MediaQuery.of(context).size.width, // Full width of the screen
+      height: 65,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        //color: Colors.blue.withOpacity(0.1), // Replace AppColors.pColor with your desired color
+        borderRadius: BorderRadius.circular(10),
+
+      ),
+      child: Stack(
+        alignment: Alignment.centerLeft, // Center the text
+        children: [
+          // Moving Text
+          Positioned.fill(
+            child: Container(
+              padding: EdgeInsets.only(top: 0),
+              alignment: Alignment.centerLeft,
+              height: 40, // Set a fixed height if needed
+              child: Transform.translate(
+                offset: Offset(_animation.value, 0),
+                child: Text(
+                  noticeText,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'kalpurush',
+                    color: Colors.red.shade900,
+                  ),
+                  overflow: TextOverflow.visible, // Prevent wrapping
+                  softWrap: false, // Ensure it does not wrap
                 ),
               ),
             ),
           ),
-        ),
-        // Edit Button
-        Positioned(
-          right: 10,
-          child: IconButton(
-            icon: Icon(Icons.edit, color: Colors.blue),
-            onPressed: () => _showEditBottomSheet(context),
+          // Edit Button
+          Positioned(
+            right: 10,
+            child: IconButton(
+              icon: Icon(Icons.edit, color: Colors.blue),
+              onPressed: () => _showEditBottomSheet(context),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

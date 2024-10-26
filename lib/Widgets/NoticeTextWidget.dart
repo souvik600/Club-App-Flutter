@@ -1,4 +1,3 @@
-import 'package:club_app/Utilities/BottonStyle.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -12,7 +11,6 @@ class _MovingNoticeTextState extends State<MovingNoticeText>
   late AnimationController _controller;
   late Animation<double> _animation;
   String noticeText = 'Loading...';
-  final TextEditingController _editController = TextEditingController();
 
   @override
   void initState() {
@@ -20,7 +18,7 @@ class _MovingNoticeTextState extends State<MovingNoticeText>
     _controller = AnimationController(
       duration: const Duration(seconds: 40),
       vsync: this,
-    )..repeat(reverse: false);
+    )..repeat(); // Repeats the animation continuously
     fetchNoticeText();
   }
 
@@ -43,69 +41,64 @@ class _MovingNoticeTextState extends State<MovingNoticeText>
     }
   }
 
-  Future<void> updateNoticeText(String newText) async {
-    try {
-      await FirebaseFirestore.instance.collection('notices').doc('notice1').set(
-          {'text': newText},
-          SetOptions(merge: true)); // Merging updates the existing document
-
-      print("Notice text updated successfully!");
-      setState(() {
-        noticeText = newText;
-      });
-    } catch (e) {
-      print("Error updating notice text: $e");
-    }
-  }
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final screenWidth = MediaQuery.of(context).size.width;
+    // Get the width of the container
+    final containerWidth = MediaQuery.of(context).size.width;
+
+    // Adjust the animation to start from the right edge of the container
     _animation = Tween<double>(
-      begin: screenWidth,
-      end: -screenWidth, // Move entirely off screen
+      begin: containerWidth, // Start from the right edge of the container
+      end: -500, // Move out of the left edge; adjust this value if necessary
     ).animate(_controller)
       ..addListener(() {
         setState(() {});
       });
-
-    _animation.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        _controller.reset();
-        _controller.forward();
-      }
-    });
-
-    _controller.forward();
   }
 
   @override
   void dispose() {
     _controller.dispose();
-    _editController.dispose();
     super.dispose();
   }
 
-
   @override
   Widget build(BuildContext context) {
-    return Positioned.fill(
-      child: Container(
-        padding: EdgeInsets.only(left: 8,right: 8),
-        alignment: Alignment.centerLeft,margin: EdgeInsets.only(left: 12,right: 12),
-        child: Transform.translate(
-          offset: Offset(_animation.value, 0),
-          child: Text(
-            noticeText,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'kalpurush',
-              color: Colors.red.shade900,
+    return Container(
+      margin: const EdgeInsets.only(top: 15, bottom: 20),
+      width: MediaQuery.of(context).size.width, // Full width of the screen
+      height: 65,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        // Background color for the container
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Stack(
+        alignment: Alignment.centerLeft, // Center the text
+        children: [
+          // Moving Text
+          Positioned(
+            left: 0, // Start from the left side of the container
+            child: Transform.translate(
+              offset: Offset(_animation.value, 0),
+              child: Container(
+                padding: EdgeInsets.only(left: 20), // Add padding to the left
+                child: Text(
+                  noticeText,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'kalpurush',
+                    color: Colors.red.shade900,
+                  ),
+                  overflow: TextOverflow.visible, // Prevent wrapping
+                  softWrap: false, // Ensure it does not wrap
+                ),
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

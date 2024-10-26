@@ -1,6 +1,8 @@
 
+import 'package:club_app/Screens/AdminScreens/BloodDonerListScreen/admin_blood_doner_screen.dart';
 import 'package:club_app/Screens/UserScreens/user_profile_screen.dart';
 import 'package:club_app/Screens/splash_screen.dart';
+import 'package:club_app/Widgets/AdminImageSlideShowWidget.dart';
 import 'package:club_app/Widgets/AdminNoticeTextWidget.dart';
 import 'package:club_app/Widgets/NoticeTextWidget.dart';
 import 'package:flutter/material.dart';
@@ -137,11 +139,11 @@ class AdminHomeScreen extends StatelessWidget {
                                 bottomRight: Radius.circular(20),
                               ),
                             ),
-                            child: ImageSlideShow(),
+                            child: AdminImageSlideShow(),
                           ),
                           Container(
                             margin: const EdgeInsets.only(top: 15, bottom: 20),
-                            width: MediaQuery.of(context).size.width,
+                            width: MediaQuery.of(context).size.width, // Full width of the screen
                             height: 55,
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
@@ -155,10 +157,7 @@ class AdminHomeScreen extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(10.0),
-                              child: Center(child: AdminMovingNoticeText()),
-                            ),
+                            child: AdminMovingNoticeText(), // Add the moving notice text here
                           ),
                         ],
                       ),
@@ -187,7 +186,7 @@ class AdminHomeScreen extends StatelessWidget {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => SplashScreen(),
+                                    builder: (context) => AdminBloodDonorScreen(),
                                   ),
                                 );
                               }, "assets/lotti_animation/blood_doner.json",

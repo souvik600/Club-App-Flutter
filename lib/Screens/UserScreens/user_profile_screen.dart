@@ -8,7 +8,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 
-
 class UserProfileScreen extends StatefulWidget {
   @override
   _UserProfileScreenState createState() => _UserProfileScreenState();
@@ -32,18 +31,23 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   // Fetch the user's profile from Firestore
   Future<void> _loadUserProfile() async {
     if (user != null) {
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user!.uid)
-          .get();
+      try {
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user!.uid)
+            .get();
 
-      if (userDoc.exists) {
-        setState(() {
-          name = userDoc['full_name'] ?? 'No Name';
-          location = userDoc['address'] ?? 'No Location';
-          email = user!.email ?? 'No Email';
-          profileImageUrl = userDoc['avatar_url'] ?? '';
-        });
+        if (userDoc.exists) {
+          setState(() {
+            name = userDoc['full_name'] ?? 'No Name';
+            location = userDoc['address'] ?? 'No Location';
+            email = user!.email ?? 'No Email';
+            profileImageUrl = userDoc['avatar_url'] ?? '';
+          });
+        }
+      } catch (e) {
+        // Handle error, maybe show a Snackbar
+        print("Error loading user profile: $e");
       }
     }
   }
@@ -91,9 +95,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
       setState(() {
         profileImageUrl = imageUrl;
+        // Optionally, show a confirmation message
       });
     } catch (e) {
       print("Error uploading profile image: $e");
+      // Show an error message to the user
     } finally {
       setState(() {
         _isLoading = false;
@@ -116,99 +122,96 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         ),
         backgroundColor: AppColors.pColor,
       ),
-      body:
-      _isLoading
+      body: _isLoading
           ? Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-            child: Stack(
-              children: [
-                ScreenBackground(context),
-               Center(
-                      child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(height: 60,),
-                // Profile Picture with Edit Icon
-                Stack(
-                  children: [
-                    // Profile Picture
-                    CircleAvatar(
-                      radius: 80,
-                      backgroundImage: profileImageUrl.isNotEmpty
-                          ? NetworkImage(profileImageUrl)
-                          : AssetImage('assets/images/default_profile.png')
-                      as ImageProvider,
-                    ),
-                    // Edit Icon
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: InkWell(
-                        onTap: _pickImage, // Tap to change the profile picture
-                        child: CircleAvatar(
-                          backgroundColor: Colors.white,
-                          radius: 25,
-                          child: Icon(
-                            Icons.edit,
-                            color: Colors.black,
-                            size: 30,
+        child: Stack(
+          children: [
+            ScreenBackground(context),
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(height: 60),
+                  // Profile Picture with Edit Icon
+                  Stack(
+                    children: [
+                      // Profile Picture
+                      CircleAvatar(
+                        radius: 80,
+                        backgroundImage: profileImageUrl.isNotEmpty
+                            ? NetworkImage(profileImageUrl)
+                            : AssetImage('assets/images/default_profile.png') as ImageProvider,
+                      ),
+                      // Edit Icon
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: InkWell(
+                          onTap: _pickImage, // Tap to change the profile picture
+                          child: CircleAvatar(
+                            backgroundColor: Colors.white,
+                            radius: 25,
+                            child: Icon(
+                              Icons.edit,
+                              color: Colors.black,
+                              size: 30,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // Name
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+                    ],
                   ),
-                ),
-                const SizedBox(height: 10),
+                  const SizedBox(height: 20),
 
-                // Email
-                Text(
-                  email,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    color: Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                // Location
-                Text(
-                  location,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    color: Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 30),
-
-                // Logout Button
-                ElevatedButton(
-                  onPressed: _logout,
-                  child: const Text('Logout',style: TextStyle(fontWeight: FontWeight.w600,fontSize: 18,color: AppColors.wColor),),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 50, vertical: 8),
-                    backgroundColor: Colors.red,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                  // Name
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 10),
+
+                  // Email
+                  Text(
+                    email,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Location
+                  Text(
+                    location,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+
+                  // Logout Button
+                  ElevatedButton(
+                    onPressed: _logout,
+                    child: const Text('Logout', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18, color: AppColors.wColor)),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 8),
+                      backgroundColor: Colors.red,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-              ],
+                  ),
+                ],
+              ),
             ),
-          ),
+          ],
+        ),
+      ),
     );
   }
 }
